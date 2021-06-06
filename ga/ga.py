@@ -1,5 +1,5 @@
 import random
-from multiprocessing import ThreadPool
+from multiprocessing.pool import ThreadPool
 
 AAS = list('ACDEFGHIKLMNPQRSTVWY')
 
