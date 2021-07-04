@@ -7,9 +7,11 @@ AAS = list('ACDEFGHIKLMNPQRSTVWY')
 def random_seq(n):
     return ''.join(random.choices(AAS,k=n))
 
-def mutate(seq, vocab=AAS):
+def mutate(seq, vocab=AAS, weights=None):
     seq = list(seq)
-    seq[random.randint(0, len(seq)-1)] = random.choice(vocab)
+    nums = [i for i, j in enumerate(seq)]
+    mxn_site = random.choices(nums, weights=weights, k=1)[0]
+    seq[mxn_site] = random.choice(vocab)
     return ''.join(seq)
 
 def crossover(a,b):
