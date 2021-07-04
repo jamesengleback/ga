@@ -1,5 +1,6 @@
 import random
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import ThreadPool, Pool
+from concurrent.futures import ThreadPoolExecutor
 
 AAS = list('ACDEFGHIKLMNPQRSTVWY')
 
@@ -15,10 +16,11 @@ def crossover(a,b):
     cut = random.randint(0,min(len(a),len(b)))
     return random.choice([a[:cut] + b[cut:], b[:cut] + a[cut:]])
 
-def eval(gene_pool, fn):
-    with ThreadPool() as process_pool :
+def eval(gene_pool, fn, n_process = None):
+    if n_process is None:
+        n_process = len(gene_pool)
+    with ThreadPoolExecutor(n_process) as process_pool :
         results = process_pool.map(fn, gene_pool)
-    process_pool.join()
     return dict(zip(gene_pool,results))
 
 
