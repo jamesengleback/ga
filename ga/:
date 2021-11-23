@@ -42,8 +42,7 @@ def evaluate(gene_pool, fn_, n_process=None, *args, **kwargs):
         n_process = len(gene_pool)
     with ThreadPoolExecutor(n_process) as process_pool :
         results = process_pool.map(fn, gene_pool)
-    d= dict(zip(gene_pool,results))
-    return d #dict(zip(gene_pool,results))
+    return dict(zip(gene_pool,results))
 
 ######====================
 
@@ -99,28 +98,19 @@ class Layer:
                 ):
         self.fn = fn
         self.cast = cast 
+        self.__dict__ = {**self.__dict__, **kwargs}
     def __call__(self, pop, *args):
+        assert isinstance(pop, list)
+        fn_ = lambda mutant : self.fn(str(mutant), *args)
         if self.cast:
-            return list(map(self.fn, pop))
+            return list(map(fn_, pop))
         else:
-            return self.fn(pop)
+            return fn_(pop)
 
-class Print(Layer):
-    def __init__(self, *args):
-        super().__init__(self.fn, True, *args)
-    def fn(self, x):
-        if isinstance(x,list):
-            for i in x:
-                self.fn(i)
-        else:
-            print(x)
-            return x
 
 class RandomMutate(Layer):
     def __init__(self,  *args):
         super().__init__(random_mutate, cast=True, *args)
-    def fn(self, x):
-        return random_mutate(x)
 
 class Mutate(Layer):
     def __init__(self, pos, new, *args, **kwargs,):
@@ -128,31 +118,17 @@ class Mutate(Layer):
         super().__init__(fn, cast=True, *args, **kwargs)
 
 class CrossOver(Layer):
-    def __init__(self, *args, **kwargs,):
-        super().__init__(self.fn, False, *args, **kwargs)
+    def __init__(self, n, *args, **kwargs,):
+        self.n=n
+        super().__init__(self.fn, cast=False, *args, **kwargs)
     def fn(self, pop):
-        return [crossover(*random.choices(pop,k=2)) for _ in range(len(pop))]
-
+        return [crossover(*random.choices(pop,k=2)) for _ in range(self.n)]
 
 class Evaluate(Layer):
-    # returns dict 
-    def __init__(self, fn_, *args, **kwargs):
-        super().__init__(self.fn, False, *args, **kwargs)
-        self.fn_ = fn_
-        self.kwargs = kwargs
-    def fn(self,x):
-        return evaluate(x, self.fn_, self.kwargs)
+    def __init__(self, fn_, *args, **kwargs,):
+        fn = lambda x : evaluate(x, fn_, **kwargs)
+        super().__init__(fn, cast=False, *args, **kwargs)
 
-class Tournament(Layer):
-    def __init__(self, gt=True, *args, **kwargs):
-        super().__init__(self.fn, False, *args, **kwargs)
-        self.gt = gt
-    def fn(self, pop_dict):
-        if self.gt:
-            fitter = lambda a, b : a if pop_dict[a] > pop_dict[b] else b
-        else:
-            fitter = lambda a, b : a if pop_dict[a] < pop_dict[b] else b
-        return [fitter(*random_pair()) for _ in range(len(pop_dict)//2)]
 
 
 class Sequential:
