@@ -90,70 +90,61 @@ def evaluate(gene_pool, fn_, n_process=None, *args, **kwargs):
 #        newline='\n'
 #        return f"{newline.join([str(i) for i in self.mutants])}"
 
-class Layer:
-    def __init__(self,
-                fn,
-                cast=True,
-                *args,
-                **kwargs,
-                ):
-        self.fn = fn
-        self.cast = cast 
-    def __call__(self, pop, *args):
-        if self.cast:
-            return list(map(self.fn, pop))
-        else:
-            return self.fn(pop)
+#class Layer:
+#    def __init__(self, fn):
+#        self.fn = fn
+#    def __call__(self, pop):
+#        return self.fn(pop)
 
-class Print(Layer):
-    def __init__(self, *args):
-        super().__init__(self.fn, True, *args)
-    def fn(self, x):
-        if isinstance(x,list):
-            for i in x:
-                self.fn(i)
-        else:
-            print(x)
-            return x
+class Print:
+    def __init__(self):
+        pass
+    def __call__(self, x):
+        assert isinstance(x, list)
+        for i in x:
+            print(i)
+        return x
 
-class RandomMutate(Layer):
-    def __init__(self,  *args):
-        super().__init__(random_mutate, cast=True, *args)
-    def fn(self, x):
-        return random_mutate(x)
+class Mutate:
+    def __init__(self, pos, new):
+        self.pos=pos
+        self.new=new
+    def __call__(self, x):
+        return x
+        #return list(map(lambda x : mutate(x, 2,'s'), x))
+        #return list(map(lambda x_ : mutate(x_, self.pos, self.new), x))
 
-class Mutate(Layer):
-    def __init__(self, pos, new, *args, **kwargs,):
-        fn = lambda x : mutate(x, pos, new)
-        super().__init__(fn, cast=True, *args, **kwargs)
+class RandomMutate:
+    def __init__(self):
+        pass
+    def __call__(self, x):
+        #return [random_mutate(i) for i in x]
+        return x
 
-class CrossOver(Layer):
-    def __init__(self, *args, **kwargs,):
-        super().__init__(self.fn, False, *args, **kwargs)
-    def fn(self, pop):
+class CrossOver:
+    def __init__(self, n):
+        self.n=n
+    def __call__(self, pop):
         return [crossover(*random.choices(pop,k=2)) for _ in range(len(pop))]
 
-
-class Evaluate(Layer):
+class Evaluate:
     # returns dict 
-    def __init__(self, fn_, *args, **kwargs):
-        super().__init__(self.fn, False, *args, **kwargs)
+    def __init__(self, fn_):
         self.fn_ = fn_
-        self.kwargs = kwargs
-    def fn(self,x):
-        return evaluate(x, self.fn_, self.kwargs)
+    def __call__(self,x):
+        return evaluate(x, self.fn_)
 
-class Tournament(Layer):
-    def __init__(self, gt=True, *args, **kwargs):
-        super().__init__(self.fn, False, *args, **kwargs)
+class Tournament:
+    def __init__(self, gt=True):
         self.gt = gt
-    def fn(self, pop_dict):
+    def __call__(self, pop_dict):
+        random_pair = lambda : random.choices(list(pop_dict.keys()), k=2)
+        key = lambda k : pop_dict[k]
         if self.gt:
-            fitter = lambda a, b : a if pop_dict[a] > pop_dict[b] else b
+            fitter = lambda a, b : a if key(a) > key(b) else b
         else:
-            fitter = lambda a, b : a if pop_dict[a] < pop_dict[b] else b
+            fitter = lambda a, b : a if key(a) < key(b) else b
         return [fitter(*random_pair()) for _ in range(len(pop_dict)//2)]
-
 
 class Sequential:
     '''
@@ -167,6 +158,7 @@ class Sequential:
     def __call__(self, x):
         for fn in self.layers:
             x = fn(x) 
+            print(x)
         return x
     def __repr__(self):
         newline='\n'
