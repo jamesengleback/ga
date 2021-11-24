@@ -18,16 +18,6 @@ def hamming(a,b):
     assert len(a) == len(b)
     return sum([i!=j for i,j in zip(a,b)])
 
-#def undrift(seq, fn, condition):
-#    done=False
-#    while not done:
-#        seq_ = random_mutate(seq)
-#        if (a:=fn(seq_)) > (b:=fn(seq)):
-#            seq = seq_
-#        done = condition(seq)
-#        print(seq, a, b)
-#    return seq
-
 def random_mutate(seq, vocab=AAS, weights=None):
     mxn_site = random.choices(range(len(seq)), weights=weights, k=1)[0]
     new = random.choice(vocab)
@@ -45,65 +35,19 @@ def evaluate(gene_pool, fn_, n_process=None, *args, **kwargs):
         results = process_pool.map(fn, gene_pool)
     return gene_pool, list(results)
 
-######====================
-
-#class Mutant:
-#    def __init__(self,
-#                gene,
-#                **kwargs,
-#                ):
-#        self.gene = gene
-#        self.__dict__ = {**self.__dict__, **kwargs}
-#    def mutate(self, pos:int, new):
-#        '''
-#        change self.gene at pos to new
-#        '''
-#        self.gene = mutate(self.gene, pos, new)
-#    def apply(self, fn):
-#        '''
-#        apply function to self.gene
-#        '''
-#        self.gene = fn(self.gene)
-#    def __len__(self):
-#        return len(self.gene)
-#    def __getitem__(self, idx):
-#        return self.gene[idx]
-#    def __setitem__(self, pos, new):
-#        self.gene = mutate(self.gene, pos, new)
-#    def __repr__(self):
-#        return f"ga.Mutant: [{' '.join([f'{i}: {j}' for i,j in zip(self.__dict__.keys(), self.__dict__.values())])}]"
-#    def __str__(self):
-#        return self.gene
-#
-#class Pool: # if not better than a list then delete
-#    def __init__(self,
-#                *args,
-#                ):
-#        self.mutants = list(args)
-#    def apply(self, fn): # for applying fns to self.mutants
-#        return evaluate(self.mutants, fn)
-#    def __len__(self):
-#        return len(self.mutants)
-#    def __getitem__(self, idx):
-#        return self.mutants[idx]
-#    def __repr__(self):
-#        newline='\n'
-#        return f"{newline.join([str(i) for i in self.mutants])}"
-
-#class Layer:
-#    def __init__(self, fn):
-#        self.fn = fn
-#    def __call__(self, pop):
-#        return self.fn(pop)
-
 class Print:
     def __init__(self):
         pass
     def __call__(self, x):
-        assert isinstance(x, list)
-        for i in x:
-            print(i)
-        return x
+        if isinstance(x, tuple):
+            x, args = x
+            for i in x:
+                print(i)
+            return x, args
+        else:
+            for i in x:
+                print(i)
+            return x
     def __str__(self):
         return 'Print'
 
@@ -112,18 +56,20 @@ class Mutate:
         self.pos=pos
         self.new=new
     def __call__(self, x):
+        if isinstance(x, tuple):
+            x, args = x
         return x
     def __str__(self):
         return 'Mutate'
-        #return list(map(lambda x : mutate(x, 2,'s'), x))
-        #return list(map(lambda x_ : mutate(x_, self.pos, self.new), x))
 
 class RandomMutate:
     def __init__(self):
         pass
     def __call__(self, x):
-        #return [random_mutate(i) for i in x]
-        return x
+        if isinstance(x, tuple):
+            x, args = x
+        return [random_mutate(i) for i in x]
+        #return x
     def __str__(self):
         return 'RandomMutate'
 
@@ -131,6 +77,8 @@ class CrossOver:
     def __init__(self, n=None):
         self.n=n
     def __call__(self, pop):
+        if isinstance(pop, tuple):
+            pop, args = pop
         n = range(len(pop)) if self.n is None else range(self.n)
         return [crossover(*random.choices(pop,k=2)) for _ in n]
     def __str__(self):
@@ -141,6 +89,8 @@ class Evaluate:
     def __init__(self, fn_):
         self.fn_ = fn_
     def __call__(self,x):
+        if isinstance(x, tuple):
+            x, args = x
         return evaluate(x, self.fn_) # returns tuple
     def __str__(self):
         return 'Evaluate'
