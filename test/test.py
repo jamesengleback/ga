@@ -11,7 +11,7 @@ def fn(gene):
 def main():
     #gene_pool = [ga.random_seq(10, vocab=ascii_lowercase) for _ in range(10)]
     #pprint(ga.eval(gene_pool,fn))
-    gene_pool = [ga.random_seq(32, vocab=ascii_lowercase) for _ in  range(10)]
+    gene_pool = [ga.random_seq(32, vocab=ascii_lowercase) for _ in  range(32)]
     mutant = gene_pool[0]
     #mutant.apply(lambda gene : ga.random_mutate(gene, vocab=ascii_lowercase))
     #gene_pool.apply(ga.random_mutate)
@@ -19,14 +19,22 @@ def main():
     seq = ga.Sequential(
                         ga.Mutate(3,'*'),
                         ga.RandomMutate(),
-                        ga.CrossOver(4),
+                        ga.CrossOver(),
                         ga.Evaluate(fn),
-                        ga.Print(),
-                        ga.Tournament(),
+                        ga.Tournament(frac=2),
+                        ga.Clone(32),
+                        ga.Evaluate(fn),
+                        ga.PickTop(frac=2),
+                        ga.CrossOver(32),
+                        ga.Evaluate(fn),
+                        ga.PickBottom(frac=2),
+                        ga.CrossOver(32),
                         )    
-    #print(seq(mutant))
+    print(len(gene_pool))
     s = seq(gene_pool)
-    print(s, type(s))
+    print(len(s))
+    #print(seq.log)
+    seq.savelog('log')
 
 
 if __name__ == '__main__':

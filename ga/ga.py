@@ -1,5 +1,6 @@
 import random
-import typing
+import heapq
+import json
 from multiprocessing.pool import ThreadPool, Pool
 from concurrent.futures import ThreadPoolExecutor
 
@@ -42,8 +43,7 @@ def evaluate(gene_pool, fn_, n_process=None, *args, **kwargs):
         n_process = len(gene_pool)
     with ThreadPoolExecutor(n_process) as process_pool :
         results = process_pool.map(fn, gene_pool)
-    d= dict(zip(gene_pool,results))
-    return d #dict(zip(gene_pool,results))
+    return gene_pool, list(results)
 
 ######====================
 
@@ -104,6 +104,8 @@ class Print:
         for i in x:
             print(i)
         return x
+    def __str__(self):
+        return 'Print'
 
 class Mutate:
     def __init__(self, pos, new):
@@ -111,6 +113,8 @@ class Mutate:
         self.new=new
     def __call__(self, x):
         return x
+    def __str__(self):
+        return 'Mutate'
         #return list(map(lambda x : mutate(x, 2,'s'), x))
         #return list(map(lambda x_ : mutate(x_, self.pos, self.new), x))
 
@@ -120,31 +124,85 @@ class RandomMutate:
     def __call__(self, x):
         #return [random_mutate(i) for i in x]
         return x
+    def __str__(self):
+        return 'RandomMutate'
 
 class CrossOver:
-    def __init__(self, n):
+    def __init__(self, n=None):
         self.n=n
     def __call__(self, pop):
-        return [crossover(*random.choices(pop,k=2)) for _ in range(len(pop))]
+        n = range(len(pop)) if self.n is None else range(self.n)
+        return [crossover(*random.choices(pop,k=2)) for _ in n]
+    def __str__(self):
+        return 'CrossOver'
 
 class Evaluate:
     # returns dict 
     def __init__(self, fn_):
         self.fn_ = fn_
     def __call__(self,x):
-        return evaluate(x, self.fn_)
+        return evaluate(x, self.fn_) # returns tuple
+    def __str__(self):
+        return 'Evaluate'
 
 class Tournament:
-    def __init__(self, gt=True):
+    '''
+    Tournament selection for results tuple : (sequences, scores)
+    '''
+    def __init__(self, gt=True, frac=2):
         self.gt = gt
-    def __call__(self, pop_dict):
-        random_pair = lambda : random.choices(list(pop_dict.keys()), k=2)
+        self.frac = frac
+    def __call__(self, arg_tuple):
+        ## note - samples with replacement
+        pop, scores = arg_tuple
+        pop_dict = dict(zip(pop, scores))
+        def random_choice():
+            choice = random.choice(pop)
+            pop.remove(choice)
+            return choice
+        random_pair = lambda : (random_choice(), random_choice())
+
+        random_pair = lambda : random.choices(pop, k=2)
         key = lambda k : pop_dict[k]
         if self.gt:
             fitter = lambda a, b : a if key(a) > key(b) else b
         else:
             fitter = lambda a, b : a if key(a) < key(b) else b
-        return [fitter(*random_pair()) for _ in range(len(pop_dict)//2)]
+        return [fitter(*random_pair()) for _ in range(len(pop_dict)//self.frac)]
+    def __str__(self):
+        return 'Tournament'
+
+class PickTop:
+    def __init__(self, n=None, frac=2):
+        self.n = n
+        self.frac = frac
+    def __call__(self, arg_tuple):
+        pop, scores = arg_tuple
+        pop_dict = dict(zip(pop, scores))
+        n = self.n if self.n is not None else len(pop)//self.frac
+        return heapq.nlargest(n, pop, key=lambda i : pop_dict[i])
+    def __str__(self):
+        return 'PickBest'
+
+class PickBottom:
+    def __init__(self, n=None, frac=2):
+        self.n = n
+        self.frac = frac
+    def __call__(self, arg_tuple):
+        pop, scores = arg_tuple
+        pop_dict = dict(zip(pop, scores))
+        n = self.n if self.n is not None else len(pop)//self.frac
+        return heapq.nsmallest(n, pop, key=lambda i : pop_dict[i])
+    def __str__(self):
+        return 'PickBest'
+
+class Clone:
+    def __init__(self, n=None):
+        self.n = n
+    def __call__(self, x):
+        return random.choices(x, k=self.n)
+    def __str__(self):
+        return 'Clone'
 
 class Sequential:
     '''
@@ -155,13 +213,20 @@ class Sequential:
     def __init__(self, *args, **kwargs):
         self.layers = list(args)
         self.__dict__ = {**self.__dict__, **kwargs}
+        self.log = []
+    def log_(self, **kwargs):
+        self.log.append(kwargs)
+    def savelog(self, path, mode='w'):
+        with open(path, mode) as f:
+            json.dump(self.log, f)
     def __call__(self, x):
+        self.log_(layer=0, x=x)
         for fn in self.layers:
             x = fn(x) 
-            print(x)
+            self.log_(layer=str(fn), x=x)
         return x
     def __repr__(self):
         newline='\n'
         tab='\t'
-        return f"ga.Sequential:{newline}{' -> '.join(list(map(lambda fn : str(fn).split()[1], self.layers)))}"
+        return f"ga.Sequential:{newline}{' -> '.join(list(map(lambda fn : str(fn), self.layers)))}"
 
