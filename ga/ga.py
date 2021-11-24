@@ -41,8 +41,8 @@ class Print:
     def __call__(self, x):
         if isinstance(x, tuple):
             x, args = x
-            for i in x:
-                print(i)
+            for i,j in zip(x, args):
+                print(i, j)
             return x, args
         else:
             for i in x:
