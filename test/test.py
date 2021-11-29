@@ -8,6 +8,8 @@ import ga
 def fn(gene):
     return sum(map(lambda a : a == 'a', gene))
 
+
+
 def main():
     #gene_pool = [ga.random_seq(10, vocab=ascii_lowercase) for _ in range(10)]
     #pprint(ga.eval(gene_pool,fn))
@@ -24,11 +26,17 @@ def main():
                         ga.Tournament(frac=2),
                         ga.Clone(32),
                         ga.Evaluate(fn),
-                        ga.PickTop(frac=2),
+                        ga.Print(),
+                        ga.ga.PickTop(frac=2),
+                        ga.Print(),
                         ga.CrossOver(32),
+                        ga.Print(),
                         ga.Evaluate(fn),
-                        ga.PickBottom(frac=2),
+                        ga.Print(),
+                        ga.ga.PickBottom(frac=2),
+                        ga.Print(),
                         ga.CrossOver(32),
+                        ga.Print(),
                         )    
     print(len(gene_pool))
     s = seq(gene_pool)

@@ -1,8 +1,8 @@
 import random
 import heapq
 import json
-from multiprocessing.pool import ThreadPool, Pool
-from concurrent.futures import ThreadPoolExecutor
+#from multiprocessing.pool import ThreadPool, Pool
+from concurrent.futures import ThreadPoolExecutor#, ProcessPoolExecutor
 
 AAS = list('ACDEFGHIKLMNPQRSTVWY')
 
@@ -27,11 +27,9 @@ def crossover(a,b):
     cut = random.randint(0,min(len(a),len(b)))
     return random.choice([a[:cut] + b[cut:], b[:cut] + a[cut:]])
 
-def evaluate(gene_pool, fn_, n_process=None, *args, **kwargs):
-    fn = lambda x : fn_(x, *args, **kwargs)
-    if n_process is None:
-        n_process = len(gene_pool)
-    with ThreadPoolExecutor(n_process) as process_pool :
+def evaluate(gene_pool, fn, **kwargs):
+    #fn = lambda x : fn_(x,  **kwargs)
+    with ThreadPoolExecutor(**kwargs) as process_pool :
         results = process_pool.map(fn, gene_pool)
     return gene_pool, list(results)
 
@@ -79,19 +77,20 @@ class CrossOver:
     def __call__(self, pop):
         if isinstance(pop, tuple):
             pop, args = pop
-        n = range(len(pop)) if self.n is None else range(self.n)
-        return [crossover(*random.choices(pop,k=2)) for _ in n]
+        n = len(pop) if self.n is None else self.n
+        return [crossover(*random.choices(pop,k=2)) for _ in range(n)]
     def __str__(self):
         return 'CrossOver'
 
 class Evaluate:
     # returns dict 
-    def __init__(self, fn_):
+    def __init__(self, fn_, **kwargs):
         self.fn_ = fn_
+        self.kwargs = kwargs
     def __call__(self,x):
         if isinstance(x, tuple):
             x, args = x
-        return evaluate(x, self.fn_) # returns tuple
+        return evaluate(x, self.fn_, **self.kwargs) # returns tuple
     def __str__(self):
         return 'Evaluate'
 
@@ -99,9 +98,8 @@ class Tournament:
     '''
     Tournament selection for results tuple : (sequences, scores)
     '''
-    def __init__(self, gt=True, frac=2):
+    def __init__(self, gt=True):
         self.gt = gt
-        self.frac = frac
     def __call__(self, arg_tuple):
         ## note - samples with replacement
         pop, scores = arg_tuple
@@ -118,7 +116,7 @@ class Tournament:
             fitter = lambda a, b : a if key(a) > key(b) else b
         else:
             fitter = lambda a, b : a if key(a) < key(b) else b
-        return [fitter(*random_pair()) for _ in range(len(pop_dict)//self.frac)]
+        return [fitter(*random_pair()) for _ in range(len(pop_dict)//2)]
     def __str__(self):
         return 'Tournament'
 
