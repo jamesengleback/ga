@@ -61,12 +61,12 @@ class Mutate:
         return 'Mutate'
 
 class RandomMutate:
-    def __init__(self):
-        pass
+    def __init__(self, vocab=AAS):
+        self.vocab = vocab
     def __call__(self, x):
         if isinstance(x, tuple):
             x, args = x
-        return [random_mutate(i) for i in x]
+        return [random_mutate(i, vocab=self.vocab) for i in x]
         #return x
     def __str__(self):
         return 'RandomMutate'
@@ -81,6 +81,26 @@ class CrossOver:
         return [crossover(*random.choices(pop,k=2)) for _ in range(n)]
     def __str__(self):
         return 'CrossOver'
+
+class Constrained:
+    def __init__(self,
+                 layers,
+                 fn,
+                 thresh=None,
+                 *args,
+                 **kwargs,
+                 ):
+        self.layers = layers
+        self.fn = fn
+        self.thresh = thresh # fn
+    def __call__(self, pop, n=1):
+        if self.thresh is not None:
+            while not self.thresh(pop):
+                pop = self.forward(pop)
+        else:
+            for _ in range(n):
+                pop = self.forward(pop)
+        return pop
 
 class Evaluate:
     # returns dict 
@@ -119,6 +139,16 @@ class Tournament:
         return [fitter(*random_pair()) for _ in range(len(pop_dict)//2)]
     def __str__(self):
         return 'Tournament'
+
+    def forward(self, pop):
+        f0 = [self.fn(i) for i in pop]
+        pop_ = self.layers(pop)
+        f1 = [self.fn(i) for i in pop_]
+        return [i if j < k else l for i,j,k,l in zip(pop, f0, f1, pop_)]
+    def __str__(self):
+        return type(self).__name__
+    def __repr__(self):
+        return str(self)
 
 class PickTop:
     def __init__(self, n=None, frac=2):
