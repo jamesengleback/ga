@@ -6,34 +6,75 @@ from concurrent.futures import ThreadPoolExecutor#, ProcessPoolExecutor
 
 AAS = list('ACDEFGHIKLMNPQRSTVWY')
 
-def random_seq(n, vocab=AAS):
+def random_seq(n : int, 
+               vocab=AAS):
+    ''' generates random string of length n from characters in vocab 
+        (iterable returning strings)
+    '''
     return ''.join(random.choices(vocab,k=n))
 
-def mutate(seq, pos:int, new):
+def mutate(seq, 
+           pos:int, 
+           new:str):
+    ''' mutate string at pos to new
+    '''
     seq = list(seq)
     seq[pos] = new
     return ''.join(seq)
 
-def hamming(a,b):
+def hamming(a:str,
+            b:str):
+    ''' return hamming distance between two strings of the same length
+    '''
     assert len(a) == len(b)
     return sum([i!=j for i,j in zip(a,b)])
 
-def random_mutate(seq, vocab=AAS, weights=None):
+def random_mutate(seq:str, 
+                  vocab=AAS, 
+                  pos_weights=None, 
+                  vocab_weights=None):
+    ''' mutate string at random position to random characters
+        from vocab (iterable of chars),
+        seq : str 
+        vocab : iterable returning strings
+        pos_weights : iterable of floats, maps to seq
+            probability weights for position selection
+        vocab_weights : iterable of floats, maps to vocab 
+            probability weights for substitution selection
+    '''
     mxn_site = random.choices(range(len(seq)), weights=weights, k=1)[0]
     new = random.choice(vocab)
     return mutate(seq, mxn_site, new)
 
-def crossover(a,b):
+def crossover(a:str,
+              b:str):
+    ''' randomly splice two strings
+        returns string
+    '''
     cut = random.randint(0,min(len(a),len(b)))
     return random.choice([a[:cut] + b[cut:], b[:cut] + a[cut:]])
 
-def evaluate(gene_pool, fn, **kwargs):
+def evaluate(gene_pool, 
+             fn, 
+             **kwargs):
+    ''' gene_pool : iterable (except generators)
+        fn : function to map to gene_pool
+        map a function to an iterable with multiprocessing 
+        return original iterable (?generators) and list of 
+        function evaluations
+
+    '''
     #fn = lambda x : fn_(x,  **kwargs)
     with ThreadPoolExecutor(**kwargs) as process_pool :
         results = process_pool.map(fn, gene_pool)
     return gene_pool, list(results)
 
+###
+### Should i make a base class?
+
 class Print:
+    ''' print population and return population
+    '''
     def __init__(self):
         pass
     def __call__(self, x):
@@ -50,29 +91,47 @@ class Print:
         return 'Print'
 
 class Mutate:
-    def __init__(self, pos, new):
+    ''' calls ga.mutate
+        __init__ args : pos : int , new:str
+    '''
+    def __init__(self, 
+                 pos:int, 
+                 new:int):
         self.pos=pos
         self.new=new
     def __call__(self, x):
         if isinstance(x, tuple):
             x, args = x
-        return x
+        return mutate(x, self.pos, self.new)
     def __str__(self):
         return 'Mutate'
 
 class RandomMutate:
-    def __init__(self, vocab=AAS):
+    ''' calls ga.random_mutate
+        __init__ args : pos : int , new:str
+    '''
+    def __init__(self, 
+                 vocab=AAS, 
+                 pos_weights=None, 
+                 vocab_weights=None):
         self.vocab = vocab
+        self.pos_weights = pos_weights
+        self.vocab_weights = vocab_weights
     def __call__(self, x):
         if isinstance(x, tuple):
             x, args = x
         return [random_mutate(i, vocab=self.vocab) for i in x]
-        #return x
     def __str__(self):
         return 'RandomMutate'
 
 class CrossOver:
-    def __init__(self, n=None):
+    ''' calls ga.crossover
+        __init__ args : 
+            n : int, default : None
+                number of children to return, default: len(pop)
+    '''
+    def __init__(self, 
+                 n=None):
         self.n=n
     def __call__(self, pop):
         if isinstance(pop, tuple):
@@ -83,8 +142,19 @@ class CrossOver:
         return 'CrossOver'
 
 class Constrained:
+    ''' repeat same sequence of mutation layers (ga.Sequential)
+        until new population satisfies : 
+            thresh(fn(pop)) == True
+        __init__ args:
+            layers : ga.Sequential
+            fn     : function to evaluate - should return int or float
+                     using monte carlo optimization here so there needs 
+                     to be a number for better or worse
+            thresh : fn - returns True when fn(pop) passes a threshold
+                     criteria
+    '''
     def __init__(self,
-                 layers,
+                 layers, # : ga.Sequential
                  fn,
                  thresh=None,
                  *args,
@@ -94,6 +164,8 @@ class Constrained:
         self.fn = fn
         self.thresh = thresh # fn
     def __call__(self, pop, n=1):
+        ''' n : num iterations
+        '''
         if self.thresh is not None:
             while not self.thresh(pop):
                 pop = self.forward(pop)
@@ -103,8 +175,14 @@ class Constrained:
         return pop
 
 class Evaluate:
+    ''' calls ga.evaluate on pop
+        __init__ args:
+            fn_ : function to map to mutants
+    '''
     # returns dict 
-    def __init__(self, fn_, **kwargs):
+    def __init__(self, 
+                 fn_, 
+                 **kwargs):
         self.fn_ = fn_
         self.kwargs = kwargs
     def __call__(self,x):
@@ -115,8 +193,7 @@ class Evaluate:
         return 'Evaluate'
 
 class Tournament:
-    '''
-    Tournament selection for results tuple : (sequences, scores)
+    ''' Tournament selection for results tuple : (sequences, scores)
     '''
     def __init__(self, gt=True):
         self.gt = gt
@@ -129,7 +206,6 @@ class Tournament:
             pop.remove(choice)
             return choice
         random_pair = lambda : (random_choice(), random_choice())
-
         random_pair = lambda : random.choices(pop, k=2)
         key = lambda k : pop_dict[k]
         if self.gt:
@@ -139,7 +215,6 @@ class Tournament:
         return [fitter(*random_pair()) for _ in range(len(pop_dict)//2)]
     def __str__(self):
         return 'Tournament'
-
     def forward(self, pop):
         f0 = [self.fn(i) for i in pop]
         pop_ = self.layers(pop)
@@ -151,10 +226,16 @@ class Tournament:
         return str(self)
 
 class PickTop:
+    '''
+    '''
     def __init__(self, n=None, frac=2):
+        
+        
         self.n = n
         self.frac = frac
     def __call__(self, arg_tuple):
+        
+        
         pop, scores = arg_tuple
         pop_dict = dict(zip(pop, scores))
         n = self.n if self.n is not None else len(pop)//self.frac
@@ -163,6 +244,8 @@ class PickTop:
         return 'PickBest'
 
 class PickBottom:
+    '''
+    '''
     def __init__(self, n=None, frac=2):
         self.n = n
         self.frac = frac
@@ -175,7 +258,12 @@ class PickBottom:
         return 'PickBest'
 
 class Clone:
-    def __init__(self, n=None):
+    ''' Randomly sample n mutants (with replacement) from pop
+        for up or down sampling
+        __init__ args:
+            n : int - number of mutants to return
+    '''
+    def __init__(self, n:int):
         self.n = n
     def __call__(self, x):
         return random.choices(x, k=self.n)
@@ -184,9 +272,18 @@ class Clone:
 
 class Sequential:
     '''
-    A pipeline of functions.
+    A pipeline of function modules to execute sequentially on
+    pop in each call
     e.g
-    ga.Sequential(ga.random_mutate, fn
+    >>> sequential = ga.Sequential(ga.RandomMutate(), 
+                                   ga.CrossOver(),
+                                   ...
+                                   ga.Evaluate(<some function),
+                                   ga.Tournament(),
+                                   ga.Clone(),
+                                   )
+    >>> sequential(pop)
+    >>> ... 
     '''
     def __init__(self, *args, **kwargs):
         self.layers = list(args)
