@@ -42,8 +42,8 @@ def random_mutate(seq:str,
         vocab_weights : iterable of floats, maps to vocab 
             probability weights for substitution selection
     '''
-    mxn_site = random.choices(range(len(seq)), weights=weights, k=1)[0]
-    new = random.choice(vocab)
+    mxn_site = random.choices(range(len(seq)), weights=pos_weights, k=1)[0]
+    new = random.choices(vocab, weights=vocab_weights, k=1)[0]
     return mutate(seq, mxn_site, new)
 
 def crossover(a:str,
@@ -51,7 +51,7 @@ def crossover(a:str,
     ''' randomly splice two strings
         returns string
     '''
-    cut = random.randint(0,min(len(a),len(b)))
+    cut = random.randint(1,min(len(a),len(b))-1)
     return random.choice([a[:cut] + b[cut:], b[:cut] + a[cut:]])
 
 def evaluate(gene_pool, 
@@ -102,7 +102,11 @@ class Mutate:
     def __call__(self, x):
         if isinstance(x, tuple):
             x, args = x
-        return mutate(x, self.pos, self.new)
+        if hasattr(x, '__len__'):
+            x = [mutate(i, self.pos, self.new) for i in x]
+        else:
+            x = mutate(x, self.pos, self.new)
+        return x
     def __str__(self):
         return 'Mutate'
 
@@ -168,11 +172,21 @@ class Constrained:
         '''
         if self.thresh is not None:
             while not self.thresh(pop):
-                pop = self.forward(pop)
+                pop = list(map(self.forward, pop))
         else:
             for _ in range(n):
                 pop = self.forward(pop)
         return pop
+    def forward(self, mutant):
+        score0 = self.fn([mutant])
+        done=False
+        while not done:
+            mutant_ =  self.layers([mutant])[0]
+            score1 = self.fn(mutant_)
+            if score1 < score0:
+                done = True
+        return mutant
+
 
 class Evaluate:
     ''' calls ga.evaluate on pop
@@ -234,11 +248,10 @@ class PickTop:
         self.n = n
         self.frac = frac
     def __call__(self, arg_tuple):
-        
-        
-        pop, scores = arg_tuple
-        pop_dict = dict(zip(pop, scores))
-        n = self.n if self.n is not None else len(pop)//self.frac
+        if isinstance(arg_tuple, tuple):
+            pop, scores = arg_tuple
+            pop_dict = dict(zip(pop, scores))
+        n = self.n if self.n is not None else len(pop) // self.frac
         return heapq.nlargest(n, pop, key=lambda i : pop_dict[i])
     def __str__(self):
         return 'PickBest'
