@@ -185,7 +185,7 @@ class Constrained:
             score1 = self.fn(mutant_)
             if score1 < score0:
                 done = True
-        return mutant
+        return mutant_
 
 
 class Evaluate:

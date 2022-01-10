@@ -118,18 +118,18 @@ class TestCrossOver(TestLayer):
         assert len(pop) == len(pop_)
         assert isinstance(pop_, list)
 
-#class TestConstrained(TestLayer):
-#    def testConstrained(self):
-#        from ga import Constrained, Sequential, RandomMutate
-#        obj = Constrained(layers=Sequential(RandomMutate(vocab=ascii_lowercase)),
-#                          fn=lambda mutant : sum([i == 'a' for i in mutant]),
-#                          thresh = None,
-#                          )
-#
-#        pop, pop_ = self.forward(obj)
-#        assert len(pop) == len(pop_)
-#        assert isinstance(pop_, list)
-#        assert len(pop) == len(pop_)
+class TestConstrained(TestLayer):
+    def testConstrained(self):
+        from ga import Constrained, Sequential, RandomMutate
+        obj = Constrained(layers=Sequential(RandomMutate(vocab=ascii_lowercase)),
+                fn=(fn:=lambda mutant : sum([i == 'a' for i in mutant])),
+                thresh = lambda pop : max(map(fn,pop)) <=4,
+                )
+
+        pop, pop_ = self.forward(obj)
+        assert len(pop) == len(pop_)
+        assert isinstance(pop_, list)
+        assert len(pop) == len(pop_)
 
 class TestEvaluate(TestLayer):
     def testEvaluate(self):
