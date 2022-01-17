@@ -250,7 +250,7 @@ class PickTop:
             pop, scores = arg_tuple
             pop_dict = dict(zip(pop, scores))
             n = self.n if self.n is not None else len(pop) // self.frac
-            return pop, heapq.nlargest(n, pop, key=lambda i : pop_dict[i])
+            return heapq.nlargest(n, pop, key=lambda i : pop_dict[i])
         else:
             print(arg_tuple)
     def __str__(self):
@@ -266,7 +266,7 @@ class PickBottom:
         pop, scores = arg_tuple
         pop_dict = dict(zip(pop, scores))
         n = self.n if self.n is not None else len(pop)//self.frac
-        return pop, heapq.nsmallest(n, pop, key=lambda i : pop_dict[i])
+        return heapq.nsmallest(n, pop, key=lambda i : pop_dict[i])
     def __str__(self):
         return 'PickBest'
 
